@@ -1,11 +1,5 @@
-/**
- * particle_filter.cpp
- *
- * Created on: Dec 12, 2016
- * Author: Tiffany Huang
- */
-
 #include "particle_filter.h"
+#include "particle.h"
 
 #include <math.h>
 #include <algorithm>
@@ -17,6 +11,7 @@
 #include <vector>
 
 #include "helper_functions.h"
+#include "map.h"
 
 using std::normal_distribution;
 using std::string;
@@ -24,93 +19,43 @@ using std::vector;
 
 #define EPS 0.00001
 
-/**
- * Particle constructor
- */
-// Particle::Particle(int id, double x, double y, double theta, double weight) : id(id), x(x), y(y), theta(theta), weight(weight) {
-//   this->associations.clear();
-//   this->sense_x.clear();
-//   this->sense_y.clear();
-// }
-
 void ParticleFilter::init(double x, double y, double theta, double std[]) {
-  /**
-   * Initialize all particles to first position (based on estimates of x, y,
-   *  theta and their uncertainties from GPS) and all weights to 1.
-   */
   normal_distribution<double> dist_x(x, std[0]);
   normal_distribution<double> dist_y(y, std[1]);
   normal_distribution<double> dist_theta(theta, std[2]);
 
-  // These particles' location & bearing are both MAP-BASED coordinates
+  // These particles' location & bearing are both Global coordinates
   for (int i = 0; i < num_particles; i++) {
     this->particles.at(i).getId() = i;
     this->particles.at(i).getX() = dist_x(this->gen);
     this->particles.at(i).getY() = dist_y(this->gen);
     this->particles.at(i).getTheta() = dist_theta(this->gen);
-    this->particles.at(i).getWeight() = 1.0 /* /num_particles */;
+    this->particles.at(i).getWeight() = 1.0; // No need to divide by # of particles because the std::discreet_distribution does it anyway
+    this->weights.at(i) = 1.0; // Same as above
   }
   this->is_initialized = true;
 }
 
 void ParticleFilter::moveParticles(double delta_t, double std_pos[],
                                    double velocity, double yaw_rate) {
-  /**
-   * Add measurements to each particle and add random Gaussian noise.
-   * NOTE: When adding noise you may find std::normal_distribution
-   *   and std::default_random_engine useful.
-   *  http://en.cppreference.com/w/cpp/numeric/random/normal_distribution
-   *  http://www.cplusplus.com/reference/random/default_random_engine/
-   */
 	std::normal_distribution<double> noise_x(0, std_pos[0]);
 	std::normal_distribution<double> noise_y(0, std_pos[1]);
 	std::normal_distribution<double> noise_theta(0, std_pos[2]);
 
-  for (int i = 0; i < this->num_particles; i++) {
-    Particle &p = this->particles.at(i);
-    if (fabs(yaw_rate) < EPS)
-    {
-      // We treat this as a zero yaw-rate:
-      p.getX() += velocity * delta_t * cos(p.getTheta());
-      p.getY() += velocity * delta_t * sin(p.getTheta());
-      p.getTheta() = p.getTheta();  // Since yaw-rate is zero, this remains the same
-    }
-    else
-    {
-      // We treat this as a non-zero yaw-rate
-      p.getX() += velocity / yaw_rate * ( sin( p.getTheta() + yaw_rate * delta_t ) - sin( p.getTheta() ) );
-      p.getY() += velocity / yaw_rate * ( cos( p.getTheta() ) - cos( p.getTheta() + yaw_rate * delta_t ) );
-      p.getTheta() += yaw_rate * delta_t;
-    }
+  for (Particle& p : this->particles) {
+    p.move(delta_t, velocity, yaw_rate);
 
-    // Add random noise:
+    // Add random noise to the movement of each particle:
     p.getX() += noise_x(this->gen);
     p.getY() += noise_y(this->gen);
     p.getTheta() += noise_theta(this->gen);
-
-    // Post-variant:
-    // All particle locations & bearings are MAP-BASED
   }
 }
 
 void ParticleFilter::updateParticles(double sensor_range,
-                                   double sensor_stds[],
-                                   const vector<LandmarkObs> &vehicle_observed_landmarks, // Vehicle-based
-                                   const Map &reference_landmarks) {                      // Map-based
-  /**
-   * TODO: Update the weights of each particle using a mult-variate Gaussian
-   *   distribution. You can read more about this distribution here:
-   *   https://en.wikipedia.org/wiki/Multivariate_normal_distribution
-   * NOTE: The observations are given in the VEHICLE'S coordinate system.
-   *   Your particles are located according to the MAP'S coordinate system.
-   *   You will need to transform between the two systems. Keep in mind that
-   *   this transformation requires both rotation AND translation (but no scaling).
-   *   The following is a good resource for the theory:
-   *   https://www.willamette.edu/~gorr/classes/GeneralGraphics/Transforms/transforms2d.htm
-   *   and the following is a good resource for the actual equation to implement
-   *   (look at equation 3.33) http://planning.cs.uiuc.edu/node99.html
-   */
-
+                                     double sensor_stds[],
+                                     const Observations &vehicle_observed_landmarks, // Vehicle-based
+                                     const Landmarks &reference_landmarks) {                      // Map-based
   /**
    *  - For each particle:
    *    - Determine reference landmarks that are within range to this particle --> "in_range_landmarks"
@@ -136,92 +81,53 @@ void ParticleFilter::updateParticles(double sensor_range,
     Particle& p = this->particles.at(i);
 
     p.getWeight() = EPS;  // This is in case there are no observations
+    double weight = 1;
     if (vehicle_observed_landmarks.size()>0) {
-      Map in_range_landmarks_map = p.createMapOfInRangeLandmarks(sensor_range, reference_landmarks);
-      Map observed_landmarks = p.createMapOfObservedLandmarks(vehicle_observed_landmarks);
-      tuple<Map &, Map &> associations = p.alignObservationsWithClosestLandmarks(observed_landmarks, in_range_landmarks_map);
+      Landmarks in_range_landmarks_map = p.getLandmarksWithinRange(sensor_range, reference_landmarks);
+      Projections observed_landmarks = p.transformToGlobalPerspective(vehicle_observed_landmarks);
+      tuple<Projections, Landmarks> associations = p.alignObservationsWithClosestLandmarks(observed_landmarks, in_range_landmarks_map);
 
-      double weight = 1;
-
-
+      Projections &projections = std::get<0>(associations);
+      Landmarks &landmarks = std::get<1>(associations);
+      assert(projections.size() == landmarks.size());
+      for (int i = 0; i<projections.size(); i++) {
+        Projection &projection = projections.at(i);
+        Landmark &landmark = landmarks.at(i);
+        double probability = this->calculateAlignmentProbability(projection, landmark, sensor_stds);
+        weight *= max(EPS, probability);
+      }
     }
-
+    p.getWeight() = weight;
+    this->weights[i] = weight;
   }
 }
 
-/**
- * Find the distance between a map landmark and a transformed particle
- */
-double ParticleFilter::calculateDistance(single_landmark_s observation, single_landmark_s land_mark) {
-	double x1 = land_mark.x_f;
-	double y1 = land_mark.y_f;
+double ParticleFilter::calculateAlignmentProbability(const Projection& projection, const Landmark& landmark, double measurement_uncertainties[]) const {
+	double mew_x = landmark.readX();
+	double mew_y = landmark.readY();
 
-	double x2 = map_coordinates.x;
-	double y2 = map_coordinates.y;
+	double x = projection.readX();
+	double y = projection.readY();
 
-	return sqrt(pow((x1 - x2), 2) + pow((y1 - y2), 2));
+	double sigma_x = measurement_uncertainties[0];
+	double sigma_y = measurement_uncertainties[1];
+
+	return (1/ (2 * M_PI * sigma_x * sigma_y) )
+	    *  pow( M_E, -( pow(x - mew_x,2)/(2 * pow(sigma_x, 2)) + pow(y - mew_y,2)/(2 * pow(sigma_y,2) ) ) );
 }
 
 void ParticleFilter::resampleParticles() {
-  /**
-   * TODO: Resample particles with replacement with probability proportional
-   *   to their weight.
-   * NOTE: You may find std::discrete_distribution helpful here.
-   *   http://en.cppreference.com/w/cpp/numeric/random/discrete_distribution
-   */
+	 std::random_device rd;
+	 std::mt19937 gen(rd());
+	 std::discrete_distribution<> distribution(this->weights.begin(), this->weights.end());
 
+	 Particles new_particles(this->num_particles);
+   std::vector<double> new_weights(this->num_particles);
+   for (int i = 0; i < particles.size(); ++i) {
+     Particle& choice = particles.at(distribution(gen));
+     new_particles[i] = choice;
+     new_weights[i] = choice.getWeight();
+   }
+   this->particles = new_particles;
+   this->weights = new_weights;
 }
-
-// -----------------------------------------
-
-// string ParticleFilter::getAssociatedLandmarks(Particle best) {
-//   vector<int> v = best.associations;
-//   std::stringstream ss;
-//   copy(v.begin(), v.end(), std::ostream_iterator<int>(ss, " "));
-//   string s = ss.str();
-//   s = s.substr(0, s.length()-1);  // get rid of the trailing space
-//   return s;
-// }
-
-// string ParticleFilter::getSenseCoord(Particle best, string coord) {
-//   vector<double> v;
-
-//   if (coord == "X") {
-//     v = best.sense_x;
-//   } else {
-//     v = best.sense_y;
-//   }
-
-//   std::stringstream ss;
-//   copy(v.begin(), v.end(), std::ostream_iterator<float>(ss, " "));
-//   string s = ss.str();
-//   s = s.substr(0, s.length()-1);  // get rid of the trailing space
-//   return s;
-// }
-
-// void ParticleFilter::SetAssociations(Particle& particle,
-//                                      const vector<int>& associations,
-//                                      const vector<double>& sense_x,
-//                                      const vector<double>& sense_y) {
-//   // particle: the particle to which assign each listed association,
-//   //   and association's (x,y) world coordinates mapping
-//   // associations: The landmark id that goes along with each listed association
-//   // sense_x: the associations x mapping already converted to world coordinates
-//   // sense_y: the associations y mapping already converted to world coordinates
-//   particle.associations= associations;
-//   particle.sense_x = sense_x;
-//   particle.sense_y = sense_y;
-// }
-
-// void ParticleFilter::dataAssociation(vector<LandmarkObs> predicted,
-//                                      vector<LandmarkObs>& observations) {
-//   /**
-//    * TODO: Find the predicted measurement that is closest to each
-//    *   observed measurement and assign the observed measurement to this
-//    *   particular landmark.
-//    * NOTE: this method will NOT be called by the grading code. But you will
-//    *   probably find it useful to implement this method and use it as a helper
-//    *   during the updateWeights phase.
-//    */
-
-// }

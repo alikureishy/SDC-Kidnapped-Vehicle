@@ -21,6 +21,8 @@
 const double M_PI = 3.14159265358979323846;
 #endif
 
+using namespace Map;
+
 /**
  * Struct representing one position/control measurement.
  */
@@ -38,15 +40,15 @@ struct ground_truth {
   double theta; // Global vehicle yaw [rad]
 };
 
-/**
- * Struct representing one landmark observation measurement.
- */
-struct LandmarkObs {
-  
-  int id;     // Id of matching landmark in the map.
-  double x;   // Local (vehicle coords) x position of landmark observation [m]
-  double y;   // Local (vehicle coords) y position of landmark observation [m]
-};
+// /**
+//  * Struct representing one landmark observation measurement.
+//  */
+// struct LandmarkObs {
+
+//   int id;     // Id of matching landmark in the map.
+//   double x;   // Local (vehicle coords) x position of landmark observation [m]
+//   double y;   // Local (vehicle coords) y position of landmark observation [m]
+// };
 
 /**
  * Computes the Euclidean distance between two 2D points.
@@ -82,14 +84,14 @@ inline double * getError(double gt_x, double gt_y, double gt_theta, double pf_x,
  * @param filename Name of file containing map data.
  * @output True if opening and reading file was successful
  */
-inline bool read_map_data(std::string filename, Map& map) {
+inline bool read_map_data(std::string filename, Landmarks& landmarks) {
   // Get file of map
   std::ifstream in_file_map(filename.c_str(),std::ifstream::in);
   // Return if we can't open the file
   if (!in_file_map) {
     return false;
   }
-  
+
   // Declare single line of map file
   std::string line_map;
 
@@ -108,15 +110,15 @@ inline bool read_map_data(std::string filename, Map& map) {
     iss_map >> id_i;
 
     // Declare single_landmark
-    Map::single_landmark_s single_landmark_temp;
+    Landmark single_landmark_temp;
 
     // Set values
-    single_landmark_temp.id_i = id_i;
-    single_landmark_temp.x_f  = landmark_x_f;
-    single_landmark_temp.y_f  = landmark_y_f;
+    single_landmark_temp.getId() = id_i;
+    single_landmark_temp.getX()  = landmark_x_f;
+    single_landmark_temp.getY()  = landmark_y_f;
 
     // Add to landmark list of map
-    map.landmark_list.push_back(single_landmark_temp);
+    landmarks.push_back(single_landmark_temp);
   }
   return true;
 }
@@ -126,7 +128,7 @@ inline bool read_map_data(std::string filename, Map& map) {
  * @param filename Name of file containing control measurements.
  * @output True if opening and reading file was successful
  */
-inline bool read_control_data(std::string filename, 
+inline bool read_control_data(std::string filename,
                               std::vector<control_s>& position_meas) {
   // Get file of position measurements
   std::ifstream in_file_pos(filename.c_str(),std::ifstream::in);
@@ -152,7 +154,7 @@ inline bool read_control_data(std::string filename,
     //read data from line to values:
     iss_pos >> velocity;
     iss_pos >> yawrate;
-    
+
     // Set values
     meas.velocity = velocity;
     meas.yawrate = yawrate;
@@ -188,7 +190,7 @@ inline bool read_gt_data(std::string filename, std::vector<ground_truth>& gt) {
     double x, y, azimuth;
 
     // Declare single ground truth
-    ground_truth single_gt; 
+    ground_truth single_gt;
 
     //read data from line to values
     iss_pos >> x;
@@ -211,8 +213,8 @@ inline bool read_gt_data(std::string filename, std::vector<ground_truth>& gt) {
  * @param filename Name of file containing landmark observation measurements.
  * @output True if opening and reading file was successful
  */
-inline bool read_landmark_data(std::string filename, 
-                               std::vector<LandmarkObs>& observations) {
+inline bool read_landmark_data(std::string filename,
+                               Landmarks& observations) {
   // Get file of landmark measurements
   std::ifstream in_file_obs(filename.c_str(),std::ifstream::in);
   // Return if we can't open the file
@@ -236,11 +238,11 @@ inline bool read_landmark_data(std::string filename,
     iss_obs >> local_y;
 
     // Declare single landmark measurement
-    LandmarkObs meas;
+    Landmark meas;
 
     // Set values
-    meas.x = local_x;
-    meas.y = local_y;
+    meas.getX() = local_x;
+    meas.getY() = local_y;
 
     // Add to list of control measurements
     observations.push_back(meas);
