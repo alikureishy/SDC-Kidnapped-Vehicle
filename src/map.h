@@ -31,32 +31,42 @@ namespace Map {
     private:
       double x;
       double y;
+      int id = -1;
 
     public:
       Location() {};
-      double& getX() { return this->x; }
+      Location (int id, double x, double y) {
+        this->id = id;
+        this->x = x;
+        this->y = y;
+      }
+      double& getX() { return this-> x; }
       double readX() const { return this->x; }
       double& getY() { return this->y; }
       double readY() const { return this->y; }
+      int &getId() { return this->id; }
+      int readId() const { return this -> id; }
+      bool isValid() { return this->id >= 0; }
   };
+
       class Relative : public Location {
         public:
           Relative() : Location() {}
+          Relative(int id, double x, double y) : Location(id, x, y) { }
       };
 
           class Observation : public Relative {
             public:
               Observation() : Relative() {}
+              Observation(int id, double x, double y) : Relative(id, x, y) { }
           };
 
       class Absolute : public Location {
         private:
-          int id = -1;
 
         public:
           Absolute() : Location() { }
-          int &getId() { return this->id; }
-          bool isValid() { return this->id >= 0; }
+          Absolute(int id, double x, double y) : Location(id, x, y) { }
       };
 
           class GPS : public Absolute {
@@ -65,23 +75,26 @@ namespace Map {
 
           public:
             GPS() : Absolute() {}
+            GPS(int id, double x, double y, double bearing) : Absolute(id, x, y), bearing(bearing) { }
             double &getBearing() { return this->bearing; }
             double readBearing() const { return this->bearing; }
-          };
-
-          class Projection : public Absolute {
-            public:
-              Projection() : Absolute() {}
-              Observation& getSource() { return this->source; }
-              Observation readSource() const { return this->source; }
-
-            private:
-              Observation source;
           };
 
           class Landmark : public Absolute {
             public:
               Landmark() : Absolute() {}
+              Landmark(int id, double x, double y) : Absolute(id, x, y) { }
+          };
+
+          class Projection : public Absolute {
+            public:
+              Projection() : Absolute() {}
+              Projection(int id, double x, double y, const Observation& source) : Absolute(id, x, y), source(source) { }
+              Observation& getSource() { return this->source; }
+              Observation readSource() const { return this->source; }
+
+            private:
+              Observation source;
           };
 }
 

@@ -21,13 +21,13 @@ class Particle : public Absolute {
     double readTheta() const { return this->theta; }
     double& getWeight() { return this->weight; }
     double readWeight() const { return this->weight; }
-    const tuple<Projections, Landmarks> getAlignedMaps() const { return make_tuple(this->observed, this->aligned_landmarks); }
+    const tuple<Projections, Landmarks> getAlignedMaps() const { return make_tuple(this->projections, this->aligned_landmarks); }
 
     void move(double delta_t, double velocity, double yaw_rate);
-    Projection getHomogenousTransformation(const Observation& observation);
-    const Landmarks getLandmarksWithinRange(double sensor_range, const Landmarks& reference_landmarks) const;
-    const Projections transformToGlobalPerspective(const Observations& observations) const;
-    const tuple<Projections, Landmarks> alignObservationsWithClosestLandmarks(const Projections &observations, const Landmarks& landmarks);
+    Projection getHomogenousTransformation(const Observation& observation) const;
+    Landmarks getLandmarksWithinRange(double sensor_range, const Landmarks& reference_landmarks) const;
+    Projections transformToGlobalPerspective(const Observations& observations) const;
+    tuple<Projections, Landmarks> alignObservationsWithClosestLandmarks(const Projections &observations, const Landmarks& landmarks);
 
     ~Particle(){};
 
@@ -35,7 +35,7 @@ class Particle : public Absolute {
     double calculateDistance(const Projection& landmark) const;
     double theta;
     double weight;
-    Projections observed;
+    Projections projections;
     Landmarks aligned_landmarks;
 };
 

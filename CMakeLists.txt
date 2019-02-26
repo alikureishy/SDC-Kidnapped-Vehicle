@@ -19,7 +19,7 @@ set(CMAKE_CXX_FLAGS "${CXX_FLAGS}")
 file(GLOB HEADERS src/*.h)
 file(GLOB HEADERS_HPP src/*.hpp)
 
-set(sources src/particle_filter.cpp src/main.cpp ${HEADERS} ${HEADERS_HPP})
+set(sources src/particle.cpp src/particle_filter.cpp src/main.cpp ${HEADERS} ${HEADERS_HPP})
 
 
 
