@@ -31,6 +31,7 @@ double Particle::calculateDistance(const Projection& landmark) const {
 }
 
 Landmarks Particle::getLandmarksWithinRange(double sensor_range, const Landmarks& reference_landmarks) const {
+    std::cout << "Getting nearest landmarks..." << std::endl;
     // Find landmarks in particle's range.
     double sensor_range_2 = sensor_range * sensor_range;
     Landmarks inRangeLandmarks;
@@ -41,8 +42,14 @@ Landmarks Particle::getLandmarksWithinRange(double sensor_range, const Landmarks
         double dX = this->readX() - landmarkX;
         double dY = this->readY() - landmarkY;
         if ( dX*dX + dY*dY <= sensor_range_2 ) {
+            std::cout << "Landmark id: " << id << " within range" << std::endl;
             inRangeLandmarks.push_back(Landmark(id, landmarkX, landmarkY));
         }
+    }
+    std::cout << "Nearest landmarks:" << std::endl;
+    for (int i = 0; i < inRangeLandmarks.size(); i++) {
+        Landmark& l = inRangeLandmarks.at(i);
+        std::cout << "\t" << l.getX() << ", " << l.getY() << std::endl;
     }
     return inRangeLandmarks;
 }

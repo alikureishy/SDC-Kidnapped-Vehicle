@@ -84,6 +84,12 @@ void ParticleFilter::updateParticles(double sensor_range,
     double weight = 1;
     if (vehicle_observed_landmarks.size()>0) {
       Landmarks in_range_landmarks_map = p.getLandmarksWithinRange(sensor_range, reference_landmarks);
+      std::cout << "Nearest landmarks (returned):" << std::endl;
+      for (int i = 0; i < in_range_landmarks_map.size(); i++) {
+          Landmark& l = in_range_landmarks_map.at(i);
+          std::cout << "\t" << l.getX() << ", " << l.getY() << std::endl;
+      }
+
       Projections observed_landmarks = p.transformToGlobalPerspective(vehicle_observed_landmarks);
       tuple<Projections, Landmarks> associations = p.alignObservationsWithClosestLandmarks(observed_landmarks, in_range_landmarks_map);
 
