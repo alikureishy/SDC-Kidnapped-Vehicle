@@ -21,6 +21,7 @@ Location (id, x, y)
     - Observation ()
 */
 
+#define Distances std::vector<double>
 #define Landmarks std::vector<Landmark>
 #define Projections std::vector<Projection>
 #define Particles std::vector<Particle>

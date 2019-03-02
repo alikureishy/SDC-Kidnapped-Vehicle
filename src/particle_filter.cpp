@@ -84,22 +84,23 @@ void ParticleFilter::updateParticles(double sensor_range,
     double weight = 1;
     if (vehicle_observed_landmarks.size()>0) {
       Landmarks in_range_landmarks_map = p.getLandmarksWithinRange(sensor_range, reference_landmarks);
-      std::cout << "Nearest landmarks (returned):" << std::endl;
-      for (int i = 0; i < in_range_landmarks_map.size(); i++) {
-          Landmark& l = in_range_landmarks_map.at(i);
-          std::cout << "\t" << l.getX() << ", " << l.getY() << std::endl;
-      }
+      // std::cout << "Nearest landmarks (returned):" << std::endl;
+      // for (int i = 0; i < in_range_landmarks_map.size(); i++) {
+      //     Landmark& l = in_range_landmarks_map.at(i);
+      //     std::cout << "\t" << l.getX() << ", " << l.getY() << std::endl;
+      // }
 
       Projections observed_landmarks = p.transformToGlobalPerspective(vehicle_observed_landmarks);
-      tuple<Projections, Landmarks> associations = p.alignObservationsWithClosestLandmarks(observed_landmarks, in_range_landmarks_map);
+      tuple<Projections, Landmarks, Distances> associations = p.alignObservationsWithClosestLandmarks(observed_landmarks, in_range_landmarks_map);
 
       Projections &projections = std::get<0>(associations);
       Landmarks &landmarks = std::get<1>(associations);
+      Distances &distances = std::get<2>(associations);
       assert(projections.size() == landmarks.size());
       for (int i = 0; i<projections.size(); i++) {
-        Projection &projection = projections.at(i);
-        Landmark &landmark = landmarks.at(i);
-        double probability = this->calculateAlignmentProbability(projection, landmark, sensor_stds);
+        Projection &projection = projections[i];
+        Landmark &landmark = landmarks[i];
+        double probability = this->calculateAlignmentProbability(projection, landmark, sensor_stds, distances.at(i));
         weight *= max(EPS, probability);
       }
     }
@@ -108,18 +109,28 @@ void ParticleFilter::updateParticles(double sensor_range,
   }
 }
 
-double ParticleFilter::calculateAlignmentProbability(const Projection& projection, const Landmark& landmark, double measurement_uncertainties[]) const {
-	double mew_x = landmark.readX();
-	double mew_y = landmark.readY();
+double ParticleFilter::calculateAlignmentProbability(const Projection& projection, const Landmark& landmark, double measurement_uncertainties[], double manhattan_distance) const {
+  const double d_x = projection.readX() - landmark.readX();
+  const double d_y = projection.readY() - landmark.readY();
 
-	double x = projection.readX();
-	double y = projection.readY();
+  const double sigma_x = measurement_uncertainties[0];
+	const double sigma_y = measurement_uncertainties[1];
 
-	double sigma_x = measurement_uncertainties[0];
-	double sigma_y = measurement_uncertainties[1];
+  const double dx_squared = pow(d_x, 2);
+  const double dy_squared = pow(d_y, 2);
+  const double manhattan = sqrt(dx_squared + dy_squared);
+  assert(manhattan == manhattan_distance);
 
-	return (1/ (2 * M_PI * sigma_x * sigma_y) )
-	    *  pow( M_E, -( pow(x - mew_x,2)/(2 * pow(sigma_x, 2)) + pow(y - mew_y,2)/(2 * pow(sigma_y,2) ) ) );
+  const double power_denominator_x = (2 * sigma_x * sigma_y);
+  const double power_denominator_y = (2 * sigma_y * sigma_y);
+  const double power_term = -((dx_squared / power_denominator_x) + (dy_squared / power_denominator_y));
+  const double numerator = pow(M_E, power_term);
+  const double denominator = 2. * M_PI * sigma_x * sigma_y;
+  const double density = numerator / denominator;
+
+  // double a = (1 / (2 * M_PI * sigma_x * sigma_y));
+  // double prob = a * pow(M_E, -(pow(x - mew_x, 2) / (2 * pow(sigma_x, 2)) + pow(y - mew_y, 2) / (2 * pow(sigma_y, 2))));
+  return density;
 }
 
 void ParticleFilter::resampleParticles() {

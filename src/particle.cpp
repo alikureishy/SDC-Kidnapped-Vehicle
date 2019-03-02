@@ -31,7 +31,7 @@ double Particle::calculateDistance(const Projection& landmark) const {
 }
 
 Landmarks Particle::getLandmarksWithinRange(double sensor_range, const Landmarks& reference_landmarks) const {
-    std::cout << "Getting nearest landmarks..." << std::endl;
+    // std::cout << "Getting nearest landmarks..." << std::endl;
     // Find landmarks in particle's range.
     double sensor_range_2 = sensor_range * sensor_range;
     Landmarks inRangeLandmarks;
@@ -42,15 +42,15 @@ Landmarks Particle::getLandmarksWithinRange(double sensor_range, const Landmarks
         double dX = this->readX() - landmarkX;
         double dY = this->readY() - landmarkY;
         if ( dX*dX + dY*dY <= sensor_range_2 ) {
-            std::cout << "Landmark id: " << id << " within range" << std::endl;
+            // std::cout << "Landmark id: " << id << " within range" << std::endl;
             inRangeLandmarks.push_back(Landmark(id, landmarkX, landmarkY));
         }
     }
-    std::cout << "Nearest landmarks:" << std::endl;
-    for (int i = 0; i < inRangeLandmarks.size(); i++) {
-        Landmark& l = inRangeLandmarks.at(i);
-        std::cout << "\t" << l.getX() << ", " << l.getY() << std::endl;
-    }
+    // std::cout << "Nearest landmarks:" << std::endl;
+    // for (int i = 0; i < inRangeLandmarks.size(); i++) {
+    //     Landmark& l = inRangeLandmarks.at(i);
+    //     std::cout << "\t" << l.getX() << ", " << l.getY() << std::endl;
+    // }
     return inRangeLandmarks;
 }
 
@@ -72,9 +72,13 @@ Projection Particle::getHomogenousTransformation(const Observation& observation)
     return transformed_coords;
 }
 
-tuple<Projections, Landmarks> Particle::alignObservationsWithClosestLandmarks(const Projections &projections, const Landmarks& landmarks) {
+tuple<Projections, Landmarks, Distances> Particle::alignObservationsWithClosestLandmarks(const Projections &projections, const Landmarks& landmarks) {
     this->aligned_landmarks.clear();
+    assert(this->aligned_landmarks.size() == 0);
     this->projections.clear();
+    assert(this->projections.size() == 0);
+    this->manhattan_distances.clear();
+    assert(this->manhattan_distances.size() == 0);
 
     for (unsigned int i = 0; i < projections.size(); i++) { // For each observation
         Projection projection = projections[i];
@@ -83,24 +87,25 @@ tuple<Projections, Landmarks> Particle::alignObservationsWithClosestLandmarks(co
 
         for (unsigned j = 0; j < landmarks.size(); j++ ) { // For each landmark
 
-            double delta_x = landmarks[i].readX() - projections[j].readX();
-            double delta_y = landmarks[i].readY() - projections[j].readY();
-            double distance_squared = pow(delta_x, 2) + pow(delta_y, 2);
+            double delta_x = landmarks[j].readX() - projections[i].readX();
+            double delta_y = landmarks[j].readY() - projections[i].readY();
+            double manhattan_distance = sqrt(pow(delta_x, 2) + pow(delta_y, 2));
 
             // If the "distance" is less than min, stored the id and update min.
-            if ( distance_squared < minDistance ) {
-                minDistance = distance_squared;
+            if ( manhattan_distance < minDistance ) {
+                minDistance = manhattan_distance;
                 minLandmarkIdx = j;
             }
         }
 
         if (minLandmarkIdx > -1) {
             this->projections.push_back(projection);
-            this->aligned_landmarks.push_back(landmarks.at(minLandmarkIdx));
+            this->aligned_landmarks.push_back(landmarks[minLandmarkIdx]);
+            this->manhattan_distances.push_back(minDistance);
         }
     }
 
-    return make_tuple(this->projections, this->aligned_landmarks);
+    return make_tuple(this->projections, this->aligned_landmarks, this->manhattan_distances);
 }
 
 void Particle::move(double delta_t, double velocity, double yaw_rate) {

@@ -27,7 +27,7 @@ class Particle : public Absolute {
     Projection getHomogenousTransformation(const Observation& observation) const;
     Landmarks getLandmarksWithinRange(double sensor_range, const Landmarks& reference_landmarks) const;
     Projections transformToGlobalPerspective(const Observations& observations) const;
-    tuple<Projections, Landmarks> alignObservationsWithClosestLandmarks(const Projections &observations, const Landmarks& landmarks);
+    tuple<Projections, Landmarks, Distances> alignObservationsWithClosestLandmarks(const Projections &observations, const Landmarks& landmarks);
 
     ~Particle(){};
 
@@ -37,6 +37,7 @@ class Particle : public Absolute {
     double weight;
     Projections projections;
     Landmarks aligned_landmarks;
+    Distances manhattan_distances;
 };
 
 #endif // PARTICLE_H

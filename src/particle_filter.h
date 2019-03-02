@@ -29,7 +29,7 @@ class ParticleFilter {
   ~ParticleFilter() {}
 
 private:
-  double calculateAlignmentProbability(const Projection &projection, const Landmark &landmark, double measurement_uncertainties[]) const;
+  double calculateAlignmentProbability(const Projection &projection, const Landmark &landmark, double measurement_uncertainties[], double manhattan_distance) const;
 
   bool is_initialized;
   int num_particles;
