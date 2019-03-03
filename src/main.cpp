@@ -7,10 +7,51 @@
 
 // for convenience
 using nlohmann::json;
+using std::get;
+using std::make_tuple;
 using std::string;
 using std::tuple;
-using std::get;
 using std::vector;
+
+std::tuple<std::string, std::string, std::string> extractAssociationStrings(const Particle& particle) {
+  const tuple<Projections, Landmarks, Distances> associations = particle.getAlignments();
+  const Landmarks &ls = get<1>(associations);
+
+  vector<int> v_ids;
+  vector<double> v_xs;
+  vector<double> v_ys;
+  for (Landmark l : ls)
+  {
+    v_ids.push_back(l.readId());
+    v_xs.push_back(l.readX());
+    v_ys.push_back(l.readY());
+  }
+
+  std::string ids;
+  {
+    stringstream ss;
+    copy( v_ids.begin(), v_ids.end(), ostream_iterator<int>(ss, " "));
+    ids = ss.str();
+    ids = ids.substr(0, ids.length() - 1); // get rid of the trailing space
+  }
+
+  std::string xs;
+  {
+    stringstream ss;
+    copy( v_xs.begin(), v_xs.end(), ostream_iterator<float>(ss, " "));
+    xs = ss.str();
+    xs = xs.substr(0, xs.length() - 1); // get rid of the trailing space
+  }
+
+  std::string ys;
+  {
+    stringstream ss;
+    copy( v_ys.begin(), v_ys.end(), ostream_iterator<float>(ss, " "));
+    ys = ss.str();
+    ys = ys.substr(0, ys.length() - 1); // get rid of the trailing space
+  }
+  return std::make_tuple(ids, xs, ys);
+}
 
 // Checks if the SocketIO event has JSON data.
 // If there is data the JSON object in string format will be returned,
@@ -115,7 +156,6 @@ int main() {
 
           // Calculate and output the average weighted error of the particle
           //   filter over all time steps so far.
-          int num_particles = pf.getParticles().size();
           double highest_weight = -1.0;
           Particle best_particle;
           double weight_sum = 0.0;
@@ -127,15 +167,27 @@ int main() {
             weight_sum += p.readWeight();
           }
 
-          std::cout << "highest w " << highest_weight << std::endl;
-          std::cout << "average w " << weight_sum/num_particles << std::endl;
+          // std::cout << "Weights: Highest = " << highest_weight << " | Average = " << weight_sum/num_particles << std::endl;
 
           json msgJson;
           msgJson["best_particle_x"] = best_particle.readX();
           msgJson["best_particle_y"] = best_particle.readY();
           msgJson["best_particle_theta"] = best_particle.readTheta();
+          // std::cout << " Best Particle: ID = " << best_particle.getId() << " (" << best_particle.getX() << ", " << best_particle.getY() << ")" << std::endl;
 
+          //Optional message data used for debugging particle's sensing and associations
+          std::tuple<std::string, std::string, std::string> infos = extractAssociationStrings(best_particle);
+          // std::cout << "Associations:" << std::endl;
+          msgJson["best_particle_associations"] = std::get<0>(infos);
+          // std::cout << "\t" << std::get<0>(infos);
+          msgJson["best_particle_sense_x"] = std::get<1>(infos);
+          // std::cout << "\t" << std::get<1>(infos);
+          msgJson["best_particle_sense_y"] = std::get<2>(infos);
+          // std::cout << "\t" << std::get<2>(infos);
 
+          auto msg = "42[\"best_particle\"," + msgJson.dump() + "]";
+          // std::cout << msg << std::endl;
+          ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }  // end "telemetry" if
       } else {
         string msg = "42[\"manual\",{}]";
@@ -163,36 +215,4 @@ int main() {
   }
 
   h.run();
-}
-
-void debugOutput(const Particle& particle, uWS::WebSocket<uWS::SERVER>& ws) {
-    // Optional message data used for debugging particle's sensing
-    //   and associations
-    // - std::tuple<Map, Map> associations = best_particle.getAlignedMaps();
-    // - Map observations = get<0>(associations);
-    // - Map landmarks = get<1>(associations);
-    // - assert(observations.size() == landmarks.size());
-    // for (int i = 0; i < observations.size(); i++) {
-    //   Observations obs = observations.at(i).landmark_list;
-    //   single_landmark_s landmark = landmarks.at(i).landmark_list;
-    //   std::stringstream ss;
-    //   copy(landmark.begin(), v.end(), std::ostream_iterator<int>(ss, " "));
-    //   string s = ss.str();
-    //   s = s.substr(0, s.length()-1);
-    //   msgJson["best_particle_associations"] = best_particle.getAssociatedLandmarks();
-    //   msgJson["best_particle_sense_x"] = best_particle.getSenseCoord("X");
-    //   msgJson["best_particle_sense_y"] = best_particle.getSenseCoord("Y");
-    // }
-    // // Optional message data used for debugging particle's sensing
-    // //   and associations
-    // msgJson["best_particle_associations"] = pf.getAssociations(best_particle);
-    // msgJson["best_particle_sense_x"] = pf.getSenseCoord(best_particle, "X");
-    // msgJson["best_particle_sense_y"] = pf.getSenseCoord(best_particle, "Y");
-
-
-
-
-    // auto msg = "42[\"best_particle\"," + msgJson.dump() + "]";
-    // std::cout << msg << std::endl;
-    // ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
 }

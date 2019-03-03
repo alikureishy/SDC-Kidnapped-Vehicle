@@ -68,6 +68,7 @@ Projection Particle::getHomogenousTransformation(const Observation& observation)
     transformed_coords.getId() = observation.readId();
     transformed_coords.getX() = observation.readX() * cos(this->theta) - observation.readY() * sin(this->theta) + this->readX();
     transformed_coords.getY() = observation.readX() * sin(this->theta) + observation.readY() * cos(this->theta) + this->readY();
+    transformed_coords.getSource() = Observation(observation);
 
     return transformed_coords;
 }
@@ -81,14 +82,14 @@ tuple<Projections, Landmarks, Distances> Particle::alignObservationsWithClosestL
     assert(this->manhattan_distances.size() == 0);
 
     for (unsigned int i = 0; i < projections.size(); i++) { // For each observation
-        Projection projection = projections[i];
+        const Projection &projection = projections[i];
         double minDistance = std::numeric_limits<double>::max();
         int minLandmarkIdx = -1;
 
         for (unsigned j = 0; j < landmarks.size(); j++ ) { // For each landmark
-
-            double delta_x = landmarks[j].readX() - projections[i].readX();
-            double delta_y = landmarks[j].readY() - projections[i].readY();
+            const Landmark &landmark = landmarks[j];
+            double delta_x = landmark.readX() - projection.readX();
+            double delta_y = landmark.readY() - projection.readY();
             double manhattan_distance = sqrt(pow(delta_x, 2) + pow(delta_y, 2));
 
             // If the "distance" is less than min, stored the id and update min.

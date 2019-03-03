@@ -13,7 +13,7 @@ using std::tuple;
 
 class ParticleFilter {
  public:
-  ParticleFilter(int num_particles = 1000, int seed = 0) : is_initialized(false), num_particles(num_particles), particles(num_particles), weights(num_particles), gen(seed) {}
+  ParticleFilter(int num_particles = 250, int seed = 0) : is_initialized(false), num_particles(num_particles), particles(num_particles), weights(num_particles), gen(seed) {}
   void init(double x, double y, double theta, double std[]);
   const bool initialized() const { return is_initialized; }
   const Particles& getParticles() const { return this->particles; }

@@ -30,12 +30,12 @@ Location (id, x, y)
 namespace Map {
   class Location {
     private:
+      int id;
       double x;
       double y;
-      int id = -1;
 
     public:
-      Location() {};
+      Location() : id(-1), x(0), y(0) {};
       Location (int id, double x, double y) {
         this->id = id;
         this->x = x;
